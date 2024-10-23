@@ -54,11 +54,12 @@ mod tests {
     use crate::adapters::driven::user_repository::UserRepository;
     use crate::application::ports::user_repository::UserRepositoryTrait;
     use crate::domain::entities::user::User;
+    use crate::domain::value_objects::email::Email;
     use mongodb::bson::doc;
 
     #[tokio::test]
     async fn test_create_user() {
-        let email_test = "name@some.com".to_string();
+        let email_test = Email::new("name@some.com".to_string()).expect("Failed to create email");
 
         let config = crate::adapters::config::Config::new();
         let user_repository =
