@@ -42,7 +42,7 @@ impl UserRepositoryTrait for UserRepository {
     }
 
     async fn create(&self, user: User) -> Result<User, String> {
-        match self.collection.insert_one(user.clone()).await {
+        match self.collection.insert_one(&user).await {
             Ok(_) => Ok(user),
             Err(err) => Err(err.to_string()),
         }
@@ -83,8 +83,10 @@ mod tests {
         assert!(result.is_ok());
 
         let user = result.unwrap().unwrap();
-        assert_eq!(user.email, "");
+        assert_eq!(user.email, email_test);
 
         collection.delete_one(filter).await.unwrap();
+
+        db.drop().await.unwrap();
     }
 }

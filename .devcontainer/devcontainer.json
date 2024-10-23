@@ -16,7 +16,8 @@
                 "Gruntfuggly.todo-tree",
                 "GitHub.copilot",
                 "tamasfe.even-better-toml",
-                "PKief.material-icon-theme"
+                "PKief.material-icon-theme",
+                "cweijan.vscode-database-client2"
             ]
         }
     }
