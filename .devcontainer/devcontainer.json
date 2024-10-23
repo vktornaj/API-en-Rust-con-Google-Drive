@@ -1,0 +1,23 @@
+{
+    "name": "Rust Google Drive API",
+    "dockerComposeFile": "compose.yml",
+    "service": "app",
+    "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+    "remoteEnv": {
+        "SECRET_KEY": "8Xui8SN4mI+7egV/9dlfYYLGQJeEx4+DwmSQLwDVXJg=",
+        "DB_URL": "mongodb://mongodb:27017",
+        "DB_NAME": "rust_google_drive_api"
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-azuretools.vscode-docker",
+                "Postman.postman-for-vscode",
+                "Gruntfuggly.todo-tree",
+                "GitHub.copilot",
+                "tamasfe.even-better-toml",
+                "PKief.material-icon-theme"
+            ]
+        }
+    }
+}
