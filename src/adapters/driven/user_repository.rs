@@ -59,9 +59,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_user() {
+        let config = crate::adapters::config::Config::new();
         let email_test = Email::new("name@some.com".to_string()).expect("Failed to create email");
 
-        let config = crate::adapters::config::Config::new();
         let user_repository =
             UserRepository::new(&config.db_url, &config.db_name, &"users".to_string()).await;
 
