@@ -8,6 +8,7 @@ pub struct User {
     #[serde(rename = "_id")]
     pub id: Id,
     pub email: Email,
+    pub access_token: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -17,6 +18,7 @@ impl User {
         Self {
             id: Id::new(),
             email: email,
+            access_token: None,
             created_at: Utc::now(),
             updated_at: Utc::now(),
         }

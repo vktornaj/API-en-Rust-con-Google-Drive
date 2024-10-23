@@ -5,10 +5,7 @@ use axum::{
 use uuid::Uuid;
 
 use super::{state::AppState, utils::responses::JsonResponse};
-use crate::{
-    application::usecases::{self, list_files::usecase::Payload},
-    domain::value_objects::id::Id,
-};
+use crate::{application::usecases, domain::value_objects::id::Id};
 
 pub async fn handler_get_list_files(
     Extension(user_id): Extension<Uuid>,
@@ -20,11 +17,11 @@ pub async fn handler_get_list_files(
     } else {
         return JsonResponse::new_int_ser_err("Internal Server Error".to_string());
     };
-    let payload = Payload {
+    let payload = usecases::list_files::Payload {
         path: path.to_string(),
         user_id,
     };
-    match usecases::list_files::usecase::execute(
+    match usecases::list_files::execute(
         &state.user_repository,
         &state.google_drive_service,
         payload,

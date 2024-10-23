@@ -47,6 +47,10 @@ impl UserRepositoryTrait for UserRepository {
             Err(err) => Err(err.to_string()),
         }
     }
+
+    async fn update(&self, user: User) -> Result<User, String> {
+        todo!()
+    }
 }
 
 #[cfg(test)]
