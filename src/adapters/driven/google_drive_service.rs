@@ -5,20 +5,21 @@ use oauth2::{
     AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken, PkceCodeChallenge, RedirectUrl,
     Scope, StandardErrorResponse, TokenResponse, TokenUrl,
 };
+use reqwest::Client;
+use serde::Deserialize;
+
+#[derive(Deserialize)]
+struct UserInfo {
+    email: String,
+}
 
 #[derive(Clone)]
 pub struct GoogleDriveService {
-    client: oauth2::Client<
-        StandardErrorResponse<BasicErrorResponseType>,
-        oauth2::StandardTokenResponse<oauth2::EmptyExtraTokenFields, oauth2::basic::BasicTokenType>,
-        oauth2::basic::BasicTokenType,
-        oauth2::StandardTokenIntrospectionResponse<
-            oauth2::EmptyExtraTokenFields,
-            oauth2::basic::BasicTokenType,
-        >,
-        oauth2::StandardRevocableToken,
-        StandardErrorResponse<oauth2::RevocationErrorResponseType>,
-    >,
+    client_id: ClientId,
+    client_secret: ClientSecret,
+    auth_url: AuthUrl,
+    token_url: TokenUrl,
+    redirect_url: RedirectUrl,
 }
 
 impl GoogleDriveService {
@@ -29,26 +30,49 @@ impl GoogleDriveService {
         token_url: String,
         redirect_url: String,
     ) -> Self {
-        let client_id = ClientId::new(client_id);
-        let client_secret = ClientSecret::new(client_secret);
-        let auth_url = AuthUrl::new(auth_url).unwrap();
-        let token_url = TokenUrl::new(token_url).unwrap();
-        let redirect_url = RedirectUrl::new(redirect_url).unwrap();
+        Self {
+            client_id: ClientId::new(client_id),
+            client_secret: ClientSecret::new(client_secret),
+            auth_url: AuthUrl::new(auth_url).unwrap(),
+            token_url: TokenUrl::new(token_url).unwrap(),
+            redirect_url: RedirectUrl::new(redirect_url).unwrap(),
+        }
+    }
 
-        let client = BasicClient::new(client_id, Some(client_secret), auth_url, Some(token_url))
-            .set_redirect_uri(redirect_url);
-
-        Self { client }
+    fn create_oauth_client(
+        &self,
+    ) -> oauth2::Client<
+        StandardErrorResponse<BasicErrorResponseType>,
+        oauth2::StandardTokenResponse<oauth2::EmptyExtraTokenFields, oauth2::basic::BasicTokenType>,
+        oauth2::basic::BasicTokenType,
+        oauth2::StandardTokenIntrospectionResponse<
+            oauth2::EmptyExtraTokenFields,
+            oauth2::basic::BasicTokenType,
+        >,
+        oauth2::StandardRevocableToken,
+        StandardErrorResponse<oauth2::RevocationErrorResponseType>,
+    > {
+        BasicClient::new(
+            self.client_id.clone(),
+            Some(self.client_secret.clone()),
+            self.auth_url.clone(),
+            Some(self.token_url.clone()),
+        )
+        .set_redirect_uri(self.redirect_url.clone())
     }
 }
 
 impl GoogleDriveServiceTrait for GoogleDriveService {
     async fn get_google_auth_url(&self) -> Result<(String, String), String> {
-        let (auth_url, csrf_token) = self
-            .client
+        let client = self.create_oauth_client();
+
+        let (auth_url, csrf_token) = client
             .authorize_url(CsrfToken::new_random)
             .add_scope(Scope::new(
                 "https://www.googleapis.com/auth/drive".to_string(),
+            ))
+            .add_scope(Scope::new(
+                "https://www.googleapis.com/auth/userinfo.email".to_string(),
             )) // Request Google Drive scope
             .set_pkce_challenge(PkceCodeChallenge::new_random_sha256().0)
             .url();
@@ -57,8 +81,9 @@ impl GoogleDriveServiceTrait for GoogleDriveService {
     }
 
     async fn handle_google_callback(&self, code: String) -> Result<String, String> {
-        let token_result = self
-            .client
+        let client = self.create_oauth_client();
+
+        let token_result = client
             .exchange_code(AuthorizationCode::new(code))
             .request_async(async_http_client)
             .await
@@ -67,12 +92,38 @@ impl GoogleDriveServiceTrait for GoogleDriveService {
         Ok(token_result.access_token().secret().clone())
     }
 
+    async fn get_google_email(&self, access_token: String) -> Result<String, String> {
+        let client = Client::new();
+        let userinfo_url = "https://www.googleapis.com/oauth2/v3/userinfo";
+        let response = client
+            .get(userinfo_url)
+            .bearer_auth(access_token)
+            .send()
+            .await
+            .map_err(|x| x.to_string())?;
+
+        let user_info: UserInfo = response.json().await.map_err(|x| x.to_string())?;
+
+        Ok(user_info.email)
+    }
+
     async fn get_file(&self, access_token: String, file_id: &str) -> Result<Vec<u8>, String> {
         todo!()
     }
 
-    async fn get_files(&self, access_token: String, path: &str) -> Result<Vec<String>, String> {
-        todo!()
+    async fn list_files(&self, access_token: String, path: &str) -> Result<Vec<String>, String> {
+        let client = Client::new();
+        let response = client
+            .get("https://www.googleapis.com/drive/v3/files")
+            .bearer_auth(access_token)
+            .send()
+            .await
+            .map_err(|x| x.to_string())?;
+
+        let body = response.text().await.map_err(|x| x.to_string())?;
+        let files: Vec<String> = serde_json::from_str(&body).map_err(|x| x.to_string())?;
+
+        Ok(files)
     }
 
     async fn create_file(

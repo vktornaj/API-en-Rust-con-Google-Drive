@@ -4,6 +4,8 @@ use jwt::{Algorithm, DecodingKey, EncodingKey, Validation};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::domain::value_objects::id::Id;
+
 #[derive(Debug)]
 pub enum TokenDataError {
     InvalidData,
@@ -19,10 +21,10 @@ pub struct TokenData {
 }
 
 impl TokenData {
-    pub fn new(id: &Uuid) -> Self {
+    pub fn new(id: &Id) -> Self {
         TokenData {
             exp: (Utc::now() + Duration::hours(24)).timestamp(),
-            user_id: id.to_owned(),
+            user_id: id.to_owned().into(),
         }
     }
 
