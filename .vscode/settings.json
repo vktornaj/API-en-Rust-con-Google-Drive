@@ -1,0 +1,34 @@
+{
+    "material-icon-theme.folders.associations": {
+        "auth": "",
+        "chat": "",
+    },
+    "material-icon-theme.folders.customClones": [
+        {
+            "name": "shared",
+            "base": "base",
+            "color": "red",
+            "lightColor": "red",
+            "folderNames": [
+                "adapters",
+                "application",
+                "domain",
+            ]
+        },
+        {
+            "name": "modules",
+            "base": "base",
+            "color": "light-blue-700",
+            "lightColor": "light-blue-500",
+            "folderNames": [
+                "driven",
+                "driving",
+                "ports",
+                "usecases",
+                "entities",
+                "value_objects",
+            ]
+        }
+    ],
+    "editor.guides.bracketPairs": true
+}
