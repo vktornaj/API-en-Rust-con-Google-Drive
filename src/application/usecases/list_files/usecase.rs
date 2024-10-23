@@ -24,7 +24,7 @@ pub async fn execute(
         Ok(user) => user,
         Err(err) => return Err(Error::ConnectionError(err.to_string())),
     };
-    match google_drive_service.get_files(user.id, &payload.path).await {
+    match google_drive_service.get_files(todo!(), &payload.path).await {
         Ok(files_id) => Ok(files_id),
         Err(err) => Err(Error::ConnectionError(err.to_string())),
     }

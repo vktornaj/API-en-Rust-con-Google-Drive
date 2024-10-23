@@ -18,7 +18,7 @@ fn main() {
             // build our application with a single route
             let app = rust_api::router().await;
 
-            let listener = TcpListener::bind("0.0.0.0:3000").await.unwrap();
+            let listener = TcpListener::bind("0.0.0.0:8080").await.unwrap();
             // run it with hyper on localhost:3000
             axum::serve(listener, app.into_make_service())
                 .await
