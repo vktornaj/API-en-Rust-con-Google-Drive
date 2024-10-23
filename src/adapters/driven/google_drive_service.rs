@@ -1,8 +1,9 @@
 use crate::application::ports::google_drive_service::GoogleDriveServiceTrait;
 use oauth2::{
     basic::{BasicClient, BasicErrorResponseType},
-    AuthUrl, ClientId, ClientSecret, CsrfToken, PkceCodeChallenge, RedirectUrl, Scope,
-    StandardErrorResponse, TokenUrl,
+    reqwest::async_http_client,
+    AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken, PkceCodeChallenge, RedirectUrl,
+    Scope, StandardErrorResponse, TokenResponse, TokenUrl,
 };
 
 #[derive(Clone)]
@@ -53,6 +54,17 @@ impl GoogleDriveServiceTrait for GoogleDriveService {
             .url();
 
         Ok((auth_url.to_string(), csrf_token.secret().clone()))
+    }
+
+    async fn handle_google_callback(&self, code: String) -> Result<String, String> {
+        let token_result = self
+            .client
+            .exchange_code(AuthorizationCode::new(code))
+            .request_async(async_http_client)
+            .await
+            .map_err(|x| x.to_string())?;
+
+        Ok(token_result.access_token().secret().clone())
     }
 
     async fn get_file(&self, access_token: String, file_id: &str) -> Result<Vec<u8>, String> {
