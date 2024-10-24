@@ -220,14 +220,6 @@ impl GoogleDriveServiceTrait for GoogleDriveService {
     ) -> Result<String, google_drive_service::Error> {
         todo!()
     }
-
-    async fn delete_file(
-        &self,
-        access_token: String,
-        file_id: &str,
-    ) -> Result<String, google_drive_service::Error> {
-        todo!()
-    }
 }
 
 #[cfg(test)]
