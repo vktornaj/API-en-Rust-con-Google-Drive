@@ -47,7 +47,7 @@ pub async fn handler_handle_google_callback(
     )
     .await
     {
-        Ok(_) => JsonResponse::<String>::new_ok("Success".to_string()),
+        Ok(auth_token) => JsonResponse::<String>::new_ok(auth_token),
         Err(_) => {
             return JsonResponse::new_int_ser_err("Internal Server Error".to_string());
         }
