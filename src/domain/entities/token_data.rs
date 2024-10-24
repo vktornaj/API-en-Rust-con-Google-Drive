@@ -50,6 +50,8 @@ impl TokenData {
 }
 
 fn decode_token(token: &str, secret: &[u8]) -> Option<TokenData> {
+    let token = token.strip_prefix("Bearer ").unwrap_or(token);
+
     let decoding_key = DecodingKey::from_base64_secret(std::str::from_utf8(secret).unwrap());
 
     jwt::decode(
