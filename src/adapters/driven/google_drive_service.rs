@@ -1,15 +1,13 @@
-use std::default;
-
 use crate::{
-    application::ports::google_drive_service::GoogleDriveServiceTrait,
+    application::ports::google_drive_service::{self, GoogleDriveServiceTrait},
     domain::value_objects::file_info::FileInfo,
 };
-use google_drive3::{self as drive3, hyper_rustls, yup_oauth2::AccessTokenAuthenticator, DriveHub};
+use google_drive3::{hyper_rustls, yup_oauth2::AccessTokenAuthenticator, DriveHub};
 use oauth2::{
     basic::{BasicClient, BasicErrorResponseType},
     reqwest::async_http_client,
-    AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken, PkceCodeChallenge, RedirectUrl,
-    Scope, StandardErrorResponse, TokenResponse, TokenUrl,
+    AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken, RedirectUrl, Scope,
+    StandardErrorResponse, TokenResponse, TokenUrl,
 };
 use reqwest::Client;
 use serde::Deserialize;
@@ -69,7 +67,7 @@ impl GoogleDriveService {
 }
 
 impl GoogleDriveServiceTrait for GoogleDriveService {
-    async fn get_google_auth_url(&self) -> Result<(String, String), String> {
+    async fn get_google_auth_url(&self) -> Result<(String, String), google_drive_service::Error> {
         let client = self.create_oauth_client();
 
         let (auth_url, csrf_token) = client
@@ -86,7 +84,10 @@ impl GoogleDriveServiceTrait for GoogleDriveService {
         Ok((auth_url.to_string(), csrf_token.secret().clone()))
     }
 
-    async fn handle_google_callback(&self, code: String) -> Result<String, String> {
+    async fn handle_google_callback(
+        &self,
+        code: String,
+    ) -> Result<String, google_drive_service::Error> {
         let client = self.create_oauth_client();
 
         let code = AuthorizationCode::new(code);
@@ -101,14 +102,17 @@ impl GoogleDriveServiceTrait for GoogleDriveService {
             Ok(token) => token,
             Err(err) => {
                 eprintln!("Error: {:?}", err);
-                return Err(err.to_string());
+                return Err(google_drive_service::Error::Unknown(err.to_string()));
             }
         };
 
         Ok(token.access_token().secret().clone())
     }
 
-    async fn get_google_email(&self, access_token: String) -> Result<String, String> {
+    async fn get_google_email(
+        &self,
+        access_token: String,
+    ) -> Result<String, google_drive_service::Error> {
         let client = Client::new();
         let userinfo_url = "https://www.googleapis.com/oauth2/v3/userinfo";
         let response_redsult = client
@@ -121,7 +125,7 @@ impl GoogleDriveServiceTrait for GoogleDriveService {
             Ok(response) => response,
             Err(err) => {
                 eprintln!("Error: {:?}", err);
-                return Err(err.to_string());
+                return Err(google_drive_service::Error::Unknown(err.to_string()));
             }
         };
 
@@ -130,14 +134,18 @@ impl GoogleDriveServiceTrait for GoogleDriveService {
             Ok(user_info) => user_info,
             Err(err) => {
                 eprintln!("Error: {:?}", err);
-                return Err(err.to_string());
+                return Err(google_drive_service::Error::Unknown(err.to_string()));
             }
         };
 
         Ok(user_info.email)
     }
 
-    async fn get_file(&self, access_token: String, file_id: &str) -> Result<Vec<u8>, String> {
+    async fn get_file(
+        &self,
+        access_token: String,
+        file_id: &str,
+    ) -> Result<Vec<u8>, google_drive_service::Error> {
         todo!()
     }
 
@@ -145,11 +153,11 @@ impl GoogleDriveServiceTrait for GoogleDriveService {
         &self,
         access_token: String,
         folder_id: &str,
-    ) -> Result<Vec<FileInfo>, String> {
+    ) -> Result<Vec<FileInfo>, google_drive_service::Error> {
         let auth = AccessTokenAuthenticator::builder(access_token)
             .build()
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| google_drive_service::Error::Unknown(e.to_string()))?;
 
         let client =
             hyper_util::client::legacy::Client::builder(hyper_util::rt::TokioExecutor::new())
@@ -173,9 +181,16 @@ impl GoogleDriveServiceTrait for GoogleDriveService {
 
         let files = match result {
             Ok((_resp, result)) => result,
+            Err(google_drive3::Error::BadRequest(json_value)) => {
+                if json_value.to_string().contains("UNAUTHENTICATED") {
+                    return Err(google_drive_service::Error::GoogleUnauthenticated);
+                } else {
+                    return Err(google_drive_service::Error::Unknown(json_value.to_string()));
+                }
+            }
             Err(err) => {
                 eprintln!("Error: {:?}", err);
-                return Err(err.to_string());
+                return Err(google_drive_service::Error::Unknown(err.to_string()));
             }
         };
 
@@ -199,11 +214,15 @@ impl GoogleDriveServiceTrait for GoogleDriveService {
         access_token: String,
         file_name: &str,
         file_content: &[u8],
-    ) -> Result<String, String> {
+    ) -> Result<String, google_drive_service::Error> {
         todo!()
     }
 
-    async fn delete_file(&self, access_token: String, file_id: &str) -> Result<String, String> {
+    async fn delete_file(
+        &self,
+        access_token: String,
+        file_id: &str,
+    ) -> Result<String, google_drive_service::Error> {
         todo!()
     }
 }
