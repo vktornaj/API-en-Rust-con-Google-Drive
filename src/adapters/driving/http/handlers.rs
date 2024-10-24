@@ -13,7 +13,7 @@ use uuid::Uuid;
 
 use super::{state::AppState, utils::responses::JsonResponse};
 use crate::{
-    application::usecases::{self, download_pdf::Payload},
+    application::usecases,
     domain::value_objects::{file_info::FileInfo, id::Id},
 };
 
@@ -173,7 +173,6 @@ pub async fn handler_upload_pdf(
             format!("Error processing file: {}", err),
         )
     })? {
-        // Ensure it's a PDF file based on content type
         let content_type = field.content_type().map(|ct| ct.to_string());
         if content_type != Some("application/pdf".to_string()) {
             return Err((
@@ -182,7 +181,6 @@ pub async fn handler_upload_pdf(
             ));
         }
 
-        // Get the file name and ensure it's provided
         let file_name = field
             .file_name()
             .map(|name| name.to_string())
@@ -193,7 +191,6 @@ pub async fn handler_upload_pdf(
                 )
             })?;
 
-        // Save the uploaded file to a directory (e.g., ./uploads/)
         let file_path = format!("{}", file_name);
         let mut file = File::create(&file_path).await.map_err(|err| {
             (
@@ -202,7 +199,6 @@ pub async fn handler_upload_pdf(
             )
         })?;
 
-        // Write the file data to disk
         while let Some(chunk) = field.chunk().await.map_err(|err| {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -236,7 +232,6 @@ pub async fn handler_upload_pdf(
             }
         };
 
-        // Return success response
         return Ok((StatusCode::OK, msg));
     }
 
