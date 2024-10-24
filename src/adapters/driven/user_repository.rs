@@ -1,7 +1,7 @@
 use mongodb::{bson::doc, Client, Collection};
 
 use crate::{
-    application::ports::user_repository::UserRepositoryTrait,
+    application::ports::user_repository::{self, UserRepositoryTrait},
     domain::{entities::user::User, value_objects::id::Id},
 };
 
@@ -23,33 +23,37 @@ impl UserRepository {
 }
 
 impl UserRepositoryTrait for UserRepository {
-    async fn find_by_id(&self, id: Id) -> Result<User, String> {
+    async fn find_by_id(&self, id: Id) -> Result<User, user_repository::Error> {
         let filter = doc! { "_id": id.to_string() };
         match self.collection.find_one(filter).await {
             Ok(Some(user)) => Ok(user),
-            Ok(None) => Err("User not found".to_string()),
-            Err(err) => Err(err.to_string()),
+            Ok(None) => Err(user_repository::Error::NotFound),
+            Err(err) => Err(user_repository::Error::Unknown(err.to_string())),
         }
     }
 
-    async fn find_by_email(&self, email: &str) -> Result<User, String> {
+    async fn find_by_email(&self, email: &str) -> Result<User, user_repository::Error> {
         let filter = doc! { "email": email };
         match self.collection.find_one(filter).await {
             Ok(Some(user)) => Ok(user),
-            Ok(None) => Err("User not found".to_string()),
-            Err(err) => Err(err.to_string()),
+            Ok(None) => Err(user_repository::Error::NotFound),
+            Err(err) => Err(user_repository::Error::Unknown(err.to_string())),
         }
     }
 
-    async fn create(&self, user: User) -> Result<User, String> {
+    async fn create(&self, user: User) -> Result<User, user_repository::Error> {
         match self.collection.insert_one(&user).await {
             Ok(_) => Ok(user),
-            Err(err) => Err(err.to_string()),
+            Err(err) => Err(user_repository::Error::Unknown(err.to_string())),
         }
     }
 
-    async fn update(&self, user: User) -> Result<User, String> {
-        todo!()
+    async fn update(&self, user: User) -> Result<User, user_repository::Error> {
+        let filter = doc! { "_id": user.id.to_string() };
+        match self.collection.replace_one(filter, &user).await {
+            Ok(_) => Ok(user),
+            Err(err) => Err(user_repository::Error::Unknown(err.to_string())),
+        }
     }
 }
 
@@ -69,7 +73,7 @@ mod tests {
         let user_repository =
             UserRepository::new(&config.db_url, &config.db_name, &"users".to_string()).await;
 
-        let user = User::new(email_test.clone());
+        let user = User::new(email_test.clone(), "".to_string());
 
         let result = user_repository.create(user.clone()).await;
         assert!(result.is_ok());
