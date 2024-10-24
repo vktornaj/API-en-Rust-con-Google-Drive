@@ -175,7 +175,9 @@ impl GoogleDriveServiceTrait for GoogleDriveService {
             .files()
             .list()
             .q(&format!("'{}' in parents", folder_id))
-            .page_size(10)
+            .page_size(100)
+            .add_scope("https://www.googleapis.com/auth/drive.metadata.readonly")
+            .param("fields", "files(id, name, mimeType, createdTime)")
             .doit()
             .await;
 
@@ -197,12 +199,13 @@ impl GoogleDriveServiceTrait for GoogleDriveService {
         let file_ids = files
             .files
             .unwrap_or_default()
-            .iter()
-            .filter(|file| file.id.is_some())
+            .into_iter()
+            // .filter(|file| file.id.is_some())
             .map(|file| FileInfo {
-                name: file.name.clone().unwrap(),
-                file_type: file.mime_type.clone().unwrap_or(Default::default()),
-                created_at: file.created_time.clone(),
+                id: file.id.unwrap(),
+                name: file.name.unwrap(),
+                file_type: file.mime_type.unwrap_or(Default::default()),
+                created_at: file.created_time,
             })
             .collect();
 
