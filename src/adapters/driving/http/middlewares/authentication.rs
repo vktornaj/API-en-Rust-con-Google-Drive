@@ -7,14 +7,18 @@ use axum::{
 };
 
 use crate::{adapters::config::Config, domain::entities::token_data::TokenData};
-// use std::future::Future;
-// use std::pin::Pin;
 
 pub async fn auth_middleware(
     Extension(config): Extension<Config>,
     mut req: Request<Body>,
     next: Next,
 ) -> Result<Response<Body>, StatusCode> {
+    let path = req.uri().path();
+
+    if !path.starts_with("/api/protected/") {
+        return Ok(next.run(req).await);
+    }
+
     // Extract the authorization header
     let auth_header = if let Some(auth_header) = req.headers().get("Authorization") {
         auth_header
