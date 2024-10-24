@@ -1,3 +1,5 @@
+use std::{fs::File, io::Write, ops::Deref};
+
 use crate::{
     application::ports::google_drive_service::{self, GoogleDriveServiceTrait},
     domain::value_objects::file_info::FileInfo,
@@ -11,6 +13,7 @@ use oauth2::{
 };
 use reqwest::Client;
 use serde::Deserialize;
+use tracing::instrument::WithSubscriber;
 
 #[derive(Deserialize)]
 struct UserInfo {
@@ -141,12 +144,55 @@ impl GoogleDriveServiceTrait for GoogleDriveService {
         Ok(user_info.email)
     }
 
-    async fn get_file(
+    async fn download_p_d_f(
         &self,
         access_token: String,
         file_id: &str,
-    ) -> Result<Vec<u8>, google_drive_service::Error> {
-        todo!()
+    ) -> Result<String, google_drive_service::Error> {
+        let hub = create_hub(access_token.clone()).await?;
+
+        let file_metadata = hub
+            .files()
+            .get(file_id)
+            .param("fields", "name,mimeType")
+            .doit()
+            .await
+            .map_err(|x| google_drive_service::Error::Unknown(x.to_string()))?;
+
+        if file_metadata.1.mime_type != Some("application/pdf".to_string()) {
+            return Err(google_drive_service::Error::Unknown(
+                "File is not a PDF".to_string(),
+            ));
+        }
+
+        let file_path = format!("downloaded_file_{}.pdf", file_id);
+
+        let mut output_file = File::create(&file_path).map_err(|e| {
+            google_drive_service::Error::Unknown(format!("Error creating file: {}", e))
+        })?;
+
+        let client = Client::new();
+        let req = client
+            .get(&format!(
+                "https://www.googleapis.com/drive/v3/files/{}",
+                file_id
+            ))
+            .bearer_auth(&access_token)
+            .query(&[("alt", "media")]);
+
+        let mut response = req.send().await.map_err(|e| {
+            google_drive_service::Error::Unknown(format!("Error sending request: {}", e))
+        })?;
+
+        while let Some(chunk) = response.chunk().await.map_err(|e| {
+            google_drive_service::Error::Unknown(format!("Error reading chunk: {}", e))
+        })? {
+            output_file.write_all(&chunk).map_err(|e| {
+                google_drive_service::Error::Unknown(format!("Error writing to file: {}", e))
+            })?;
+        }
+
+        Ok(file_path)
     }
 
     async fn list_files(
@@ -154,23 +200,7 @@ impl GoogleDriveServiceTrait for GoogleDriveService {
         access_token: String,
         folder_id: &str,
     ) -> Result<Vec<FileInfo>, google_drive_service::Error> {
-        let auth = AccessTokenAuthenticator::builder(access_token)
-            .build()
-            .await
-            .map_err(|e| google_drive_service::Error::Unknown(e.to_string()))?;
-
-        let client =
-            hyper_util::client::legacy::Client::builder(hyper_util::rt::TokioExecutor::new())
-                .build(
-                    hyper_rustls::HttpsConnectorBuilder::new()
-                        .with_native_roots()
-                        .unwrap()
-                        .https_or_http()
-                        .enable_http1()
-                        .build(),
-                );
-
-        let hub = DriveHub::new(client, auth);
+        let hub = create_hub(access_token).await?;
         let result = hub
             .files()
             .list()
@@ -220,6 +250,30 @@ impl GoogleDriveServiceTrait for GoogleDriveService {
     ) -> Result<String, google_drive_service::Error> {
         todo!()
     }
+}
+
+async fn create_hub(
+    access_token: String,
+) -> Result<
+    DriveHub<hyper_rustls::HttpsConnector<hyper_util::client::legacy::connect::HttpConnector>>,
+    google_drive_service::Error,
+> {
+    let auth = AccessTokenAuthenticator::builder(access_token)
+        .build()
+        .await
+        .map_err(|e| google_drive_service::Error::Unknown(e.to_string()))?;
+
+    let client = hyper_util::client::legacy::Client::builder(hyper_util::rt::TokioExecutor::new())
+        .build(
+            hyper_rustls::HttpsConnectorBuilder::new()
+                .with_native_roots()
+                .unwrap()
+                .https_or_http()
+                .enable_http1()
+                .build(),
+        );
+
+    Ok(DriveHub::new(client, auth))
 }
 
 #[cfg(test)]
