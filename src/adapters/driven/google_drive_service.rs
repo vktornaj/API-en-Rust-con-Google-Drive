@@ -105,14 +105,28 @@ impl GoogleDriveServiceTrait for GoogleDriveService {
     async fn get_google_email(&self, access_token: String) -> Result<String, String> {
         let client = Client::new();
         let userinfo_url = "https://www.googleapis.com/oauth2/v3/userinfo";
-        let response = client
+        let response_redsult = client
             .get(userinfo_url)
             .bearer_auth(access_token)
             .send()
-            .await
-            .map_err(|x| x.to_string())?;
+            .await;
 
-        let user_info: UserInfo = response.json().await.map_err(|x| x.to_string())?;
+        let response = match response_redsult {
+            Ok(response) => response,
+            Err(err) => {
+                eprintln!("Error: {:?}", err);
+                return Err(err.to_string());
+            }
+        };
+
+        let user_info_result: Result<_, reqwest::Error> = response.json().await;
+        let user_info: UserInfo = match user_info_result {
+            Ok(user_info) => user_info,
+            Err(err) => {
+                eprintln!("Error: {:?}", err);
+                return Err(err.to_string());
+            }
+        };
 
         Ok(user_info.email)
     }
@@ -190,8 +204,7 @@ mod tests {
             )
             .await;
 
-        let code =
-            "4/0AVG7fiTtsQUWyBJ82kHp47nKH-0lQG7UmhHdXpuTXeYgs9ZzZY0ALg4pXQXDonPIk2ILuA".to_string();
+        let code = "".to_string();
         let access_token = match google_drive_service.handle_google_callback(code).await {
             Ok(access_token) => access_token,
             Err(err) => {
@@ -200,5 +213,33 @@ mod tests {
             }
         };
         assert!(!access_token.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_get_google_email() {
+        let config = crate::adapters::config::Config::new();
+
+        let google_drive_service =
+            crate::adapters::driven::google_drive_service::GoogleDriveService::new(
+                config.google_client_id.clone(),
+                config.google_client_secret.clone(),
+                config.google_auth_url.clone(),
+                config.google_token_url.clone(),
+                config.google_redirect_url.clone(),
+            )
+            .await;
+
+        let access_token = "".to_string();
+
+        let email = match google_drive_service.get_google_email(access_token).await {
+            Ok(email) => email,
+            Err(err) => {
+                println!("Error: {}", err);
+                panic!();
+            }
+        };
+        assert!(!email.is_empty());
+
+        println!("email: {}", email);
     }
 }
