@@ -31,5 +31,4 @@ pub trait GoogleDriveServiceTrait {
         file_name: &str,
         file_content: &[u8],
     ) -> Result<String, Error>;
-    async fn delete_file(&self, access_token: String, file_id: &str) -> Result<String, Error>;
 }
