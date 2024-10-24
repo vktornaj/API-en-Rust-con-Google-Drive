@@ -81,3 +81,12 @@
             "mimeType": "application/pdf"
         }
     ``` 
+
+## Testear el proyecto:
+El proyecto pude ser testeado facilmento abriendo el mismo con devcontainers ya de de vs code o algun otro software compatible, y accediendo a algunos archivos de codigo que cuenten con el modulo de tests 
+```rust
+#[cfg(test)]
+mod tests {
+    // ...
+}
+```
