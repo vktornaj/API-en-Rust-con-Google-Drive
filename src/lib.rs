@@ -52,8 +52,9 @@ pub async fn router() -> Router {
         .route("/callback", get(handlers::handler_handle_google_callback));
 
     // Protected routes
-    let protected_routes =
-        Router::new().route("/list-files", get(handlers::handler_get_list_files));
+    let protected_routes = Router::new()
+        .route("/list-files", get(handlers::handler_get_list_files))
+        .route("/download-pdf", get(handlers::handler_download_pdf));
 
     // API
     let api = Router::new()

@@ -19,7 +19,7 @@ pub trait GoogleDriveServiceTrait {
     async fn get_google_auth_url(&self) -> Result<(String, String), Error>;
     async fn handle_google_callback(&self, code: String) -> Result<String, Error>;
     async fn get_google_email(&self, access_token: String) -> Result<String, Error>;
-    async fn get_file(&self, access_token: String, file_id: &str) -> Result<Vec<u8>, Error>;
+    async fn download_p_d_f(&self, access_token: String, file_id: &str) -> Result<String, Error>;
     async fn list_files(
         &self,
         access_token: String,
