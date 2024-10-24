@@ -54,7 +54,8 @@ pub async fn router() -> Router {
     // Protected routes
     let protected_routes = Router::new()
         .route("/list-files", get(handlers::handler_get_list_files))
-        .route("/download-pdf", get(handlers::handler_download_pdf));
+        .route("/download-pdf", get(handlers::handler_download_pdf))
+        .route("/upload-pdf", post(handlers::handler_upload_pdf));
 
     // API
     let api = Router::new()

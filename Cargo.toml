@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 axum = "0.7.7"
+axum-extra = { version = "0.9.4", features = ["multipart"] }
 chrono = { version = "0.4.38", features = ["serde"] }
 colored = "2.1.0"
 google-drive3 = "6.0.0"

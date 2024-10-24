@@ -25,10 +25,10 @@ pub trait GoogleDriveServiceTrait {
         access_token: String,
         folder_id: &str,
     ) -> Result<Vec<FileInfo>, Error>;
-    async fn create_file(
+    async fn create_p_d_f(
         &self,
         access_token: String,
         file_name: &str,
-        file_content: &[u8],
+        file_path: String,
     ) -> Result<String, Error>;
 }
