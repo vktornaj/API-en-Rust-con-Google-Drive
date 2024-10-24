@@ -25,7 +25,6 @@ pub async fn auth_middleware(
     } else {
         return Err(StatusCode::UNAUTHORIZED);
     };
-    println!("auth_header: {:?}", auth_header);
     let token = if let Ok(token) = from_token(auth_header) {
         token
     } else {

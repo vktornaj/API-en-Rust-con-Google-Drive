@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use std::fmt::Display;
 
 #[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub struct Email(String);
