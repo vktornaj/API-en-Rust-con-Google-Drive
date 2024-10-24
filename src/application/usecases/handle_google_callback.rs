@@ -36,7 +36,18 @@ pub async fn execute(
     };
 
     let user = match user_repository.find_by_email(&email).await {
-        Ok(user) => user,
+        Ok(user) => {
+            let user = User {
+                access_token,
+                updated_at: chrono::Utc::now(),
+                ..user
+            };
+
+            user_repository
+                .update(user)
+                .await
+                .map_err(|x| x.to_string())?
+        }
         Err(user_repository::Error::NotFound) => {
             let email = Email::new(email).map_err(|x| x.to_string())?;
             let user = User::new(email, access_token);
@@ -48,11 +59,6 @@ pub async fn execute(
         }
         Err(err) => return Err(err.to_string()),
     };
-
-    let user = user_repository
-        .update(user)
-        .await
-        .map_err(|x| x.to_string())?;
 
     Ok(TokenData::new(&user.id).token(secret))
 }

@@ -1,4 +1,10 @@
-use crate::application::ports::google_drive_service::GoogleDriveServiceTrait;
+use std::default;
+
+use crate::{
+    application::ports::google_drive_service::GoogleDriveServiceTrait,
+    domain::value_objects::file_info::FileInfo,
+};
+use google_drive3::{self as drive3, hyper_rustls, yup_oauth2::AccessTokenAuthenticator, DriveHub};
 use oauth2::{
     basic::{BasicClient, BasicErrorResponseType},
     reqwest::async_http_client,
@@ -135,19 +141,57 @@ impl GoogleDriveServiceTrait for GoogleDriveService {
         todo!()
     }
 
-    async fn list_files(&self, access_token: String, path: &str) -> Result<Vec<String>, String> {
-        let client = Client::new();
-        let response = client
-            .get("https://www.googleapis.com/drive/v3/files")
-            .bearer_auth(access_token)
-            .send()
+    async fn list_files(
+        &self,
+        access_token: String,
+        folder_id: &str,
+    ) -> Result<Vec<FileInfo>, String> {
+        let auth = AccessTokenAuthenticator::builder(access_token)
+            .build()
             .await
-            .map_err(|x| x.to_string())?;
+            .map_err(|e| e.to_string())?;
 
-        let body = response.text().await.map_err(|x| x.to_string())?;
-        let files: Vec<String> = serde_json::from_str(&body).map_err(|x| x.to_string())?;
+        let client =
+            hyper_util::client::legacy::Client::builder(hyper_util::rt::TokioExecutor::new())
+                .build(
+                    hyper_rustls::HttpsConnectorBuilder::new()
+                        .with_native_roots()
+                        .unwrap()
+                        .https_or_http()
+                        .enable_http1()
+                        .build(),
+                );
 
-        Ok(files)
+        let hub = DriveHub::new(client, auth);
+        let result = hub
+            .files()
+            .list()
+            .q(&format!("'{}' in parents", folder_id))
+            .page_size(10)
+            .doit()
+            .await;
+
+        let files = match result {
+            Ok((_resp, result)) => result,
+            Err(err) => {
+                eprintln!("Error: {:?}", err);
+                return Err(err.to_string());
+            }
+        };
+
+        let file_ids = files
+            .files
+            .unwrap_or_default()
+            .iter()
+            .filter(|file| file.id.is_some())
+            .map(|file| FileInfo {
+                name: file.name.clone().unwrap(),
+                file_type: file.mime_type.clone().unwrap_or(Default::default()),
+                created_at: file.created_time.clone(),
+            })
+            .collect();
+
+        Ok(file_ids)
     }
 
     async fn create_file(
