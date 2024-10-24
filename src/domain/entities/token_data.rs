@@ -33,14 +33,18 @@ impl TokenData {
         jwt::encode(&jwt::Header::default(), self, &encoding_key.unwrap()).expect("jwt")
     }
 
-    // TODO: Determinate if token is valid by date
     pub fn from_token(token: &String, secret: &[u8]) -> Result<Self, TokenDataError> {
         if let Some(auth) = decode_token(token, secret) {
-            if Utc::now() <= Utc.timestamp_opt(auth.exp, 0).unwrap() {
-                Ok(auth)
+            if let Some(expiration) = Utc.timestamp_opt(auth.exp, 0).single() {
+                if Utc::now() <= expiration {
+                    Ok(auth)
+                } else {
+                    println!("token error: Expired token");
+                    return Err(TokenDataError::ExpiredToken);
+                }
             } else {
-                println!("token error: Expired token");
-                return Err(TokenDataError::ExpiredToken);
+                println!("token error: Invalid expiration timestamp");
+                return Err(TokenDataError::InvalidData);
             }
         } else {
             println!("token error: Invalid token");
