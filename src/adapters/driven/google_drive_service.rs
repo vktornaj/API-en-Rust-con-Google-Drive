@@ -1,5 +1,3 @@
-use std::{fs::File, io::Write, ops::Deref};
-
 use crate::{
     application::ports::google_drive_service::{self, GoogleDriveServiceTrait},
     domain::value_objects::file_info::FileInfo,
@@ -13,7 +11,10 @@ use oauth2::{
 };
 use reqwest::Client;
 use serde::Deserialize;
-use tracing::instrument::WithSubscriber;
+use tokio::{
+    fs::File,
+    io::{AsyncReadExt, AsyncWriteExt},
+};
 
 #[derive(Deserialize)]
 struct UserInfo {
@@ -167,7 +168,7 @@ impl GoogleDriveServiceTrait for GoogleDriveService {
 
         let file_path = format!("downloaded_file_{}.pdf", file_id);
 
-        let mut output_file = File::create(&file_path).map_err(|e| {
+        let mut output_file = File::create(&file_path).await.map_err(|e| {
             google_drive_service::Error::Unknown(format!("Error creating file: {}", e))
         })?;
 
@@ -187,7 +188,7 @@ impl GoogleDriveServiceTrait for GoogleDriveService {
         while let Some(chunk) = response.chunk().await.map_err(|e| {
             google_drive_service::Error::Unknown(format!("Error reading chunk: {}", e))
         })? {
-            output_file.write_all(&chunk).map_err(|e| {
+            output_file.write_all(&chunk).await.map_err(|e| {
                 google_drive_service::Error::Unknown(format!("Error writing to file: {}", e))
             })?;
         }
@@ -242,13 +243,38 @@ impl GoogleDriveServiceTrait for GoogleDriveService {
         Ok(file_ids)
     }
 
-    async fn create_file(
+    async fn create_p_d_f(
         &self,
         access_token: String,
         file_name: &str,
-        file_content: &[u8],
+        file_path: String,
     ) -> Result<String, google_drive_service::Error> {
-        todo!()
+        let mut file = File::open(file_path).await.map_err(|e| {
+            google_drive_service::Error::Unknown(format!("Error opening file: {}", e))
+        })?;
+
+        let mut buffer = Vec::new();
+        file.read_to_end(&mut buffer).await.map_err(|e| {
+            google_drive_service::Error::Unknown(format!("Error reading file: {}", e))
+        })?;
+
+        let client = Client::new();
+        let req = client
+            .post("https://www.googleapis.com/upload/drive/v3/files")
+            .bearer_auth(&access_token)
+            .header("Content-Type", "application/pdf")
+            .query(&[("uploadType", "media"), ("name", file_name)])
+            .body(buffer);
+
+        let response = req.send().await.map_err(|e| {
+            google_drive_service::Error::Unknown(format!("Error sending request: {}", e))
+        })?;
+
+        let msg = response.text().await.map_err(|e| {
+            google_drive_service::Error::Unknown(format!("Error reading response: {}", e))
+        })?;
+
+        Ok(msg)
     }
 }
 

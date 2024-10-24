@@ -5,14 +5,15 @@ use axum::{
     response::{IntoResponse, Redirect, Response},
     Extension,
 };
+use axum_extra::extract::Multipart;
 use serde::Deserialize;
-use tokio::fs::File;
+use tokio::{fs::File, io::AsyncWriteExt};
 use tokio_util::io::ReaderStream;
 use uuid::Uuid;
 
 use super::{state::AppState, utils::responses::JsonResponse};
 use crate::{
-    application::usecases,
+    application::usecases::{self, download_pdf::Payload},
     domain::value_objects::{file_info::FileInfo, id::Id},
 };
 
@@ -150,4 +151,94 @@ pub async fn handler_download_pdf(
         body,
     )
         .into_response())
+}
+
+pub async fn handler_upload_pdf(
+    Extension(user_id): Extension<Uuid>,
+    State(state): State<AppState>,
+    mut multipart: Multipart,
+) -> Result<impl IntoResponse, (StatusCode, String)> {
+    let user_id = if let Ok(user_id) = Id::try_from(user_id) {
+        user_id
+    } else {
+        return Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Internal Server Error".to_string(),
+        ));
+    };
+
+    if let Some(mut field) = multipart.next_field().await.map_err(|err| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Error processing file: {}", err),
+        )
+    })? {
+        // Ensure it's a PDF file based on content type
+        let content_type = field.content_type().map(|ct| ct.to_string());
+        if content_type != Some("application/pdf".to_string()) {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                "Only PDF files are allowed!".to_string(),
+            ));
+        }
+
+        // Get the file name and ensure it's provided
+        let file_name = field
+            .file_name()
+            .map(|name| name.to_string())
+            .ok_or_else(|| {
+                (
+                    StatusCode::BAD_REQUEST,
+                    "File name not provided!".to_string(),
+                )
+            })?;
+
+        // Save the uploaded file to a directory (e.g., ./uploads/)
+        let file_path = format!("{}", file_name);
+        let mut file = File::create(&file_path).await.map_err(|err| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to create file: {}", err),
+            )
+        })?;
+
+        // Write the file data to disk
+        while let Some(chunk) = field.chunk().await.map_err(|err| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Error while reading file: {}", err),
+            )
+        })? {
+            file.write_all(&chunk).await.map_err(|err| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("Error while writing file: {}", err),
+                )
+            })?;
+        }
+
+        let payload = usecases::upload_pdf::Payload {
+            file_name,
+            user_id,
+            file_path,
+        };
+
+        let msg = match usecases::upload_pdf::execute(
+            &state.user_repository,
+            &state.google_drive_service,
+            payload,
+        )
+        .await
+        {
+            Ok(msg) => msg,
+            Err(err) => {
+                return Err((StatusCode::INTERNAL_SERVER_ERROR, err.to_string()));
+            }
+        };
+
+        // Return success response
+        return Ok((StatusCode::OK, msg));
+    }
+
+    Err((StatusCode::BAD_REQUEST, "No file uploaded".to_string()))
 }
