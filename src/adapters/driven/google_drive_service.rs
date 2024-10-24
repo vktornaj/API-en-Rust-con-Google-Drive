@@ -74,7 +74,7 @@ impl GoogleDriveServiceTrait for GoogleDriveService {
             .add_scope(Scope::new(
                 "https://www.googleapis.com/auth/userinfo.email".to_string(),
             )) // Request Google Drive scope
-            .set_pkce_challenge(PkceCodeChallenge::new_random_sha256().0)
+            // .set_pkce_challenge(PkceCodeChallenge::new_random_sha256().0)
             .url();
 
         Ok((auth_url.to_string(), csrf_token.secret().clone()))
@@ -83,13 +83,23 @@ impl GoogleDriveServiceTrait for GoogleDriveService {
     async fn handle_google_callback(&self, code: String) -> Result<String, String> {
         let client = self.create_oauth_client();
 
-        let token_result = client
-            .exchange_code(AuthorizationCode::new(code))
-            .request_async(async_http_client)
-            .await
-            .map_err(|x| x.to_string())?;
+        let code = AuthorizationCode::new(code);
 
-        Ok(token_result.access_token().secret().clone())
+        let token_result = client
+            .exchange_code(code)
+            // .set_pkce_verifier(PkceCodeChallenge::new_random_sha256())
+            .request_async(async_http_client)
+            .await;
+
+        let token = match token_result {
+            Ok(token) => token,
+            Err(err) => {
+                eprintln!("Error: {:?}", err);
+                return Err(err.to_string());
+            }
+        };
+
+        Ok(token.access_token().secret().clone())
     }
 
     async fn get_google_email(&self, access_token: String) -> Result<String, String> {
@@ -164,5 +174,31 @@ mod tests {
 
         println!("auth_url: {}", auth_url);
         println!("csrf_token: {}", csrf_token);
+    }
+
+    #[tokio::test]
+    async fn test_handle_google_callback() {
+        let config = crate::adapters::config::Config::new();
+
+        let google_drive_service =
+            crate::adapters::driven::google_drive_service::GoogleDriveService::new(
+                config.google_client_id.clone(),
+                config.google_client_secret.clone(),
+                config.google_auth_url.clone(),
+                config.google_token_url.clone(),
+                config.google_redirect_url.clone(),
+            )
+            .await;
+
+        let code =
+            "4/0AVG7fiTtsQUWyBJ82kHp47nKH-0lQG7UmhHdXpuTXeYgs9ZzZY0ALg4pXQXDonPIk2ILuA".to_string();
+        let access_token = match google_drive_service.handle_google_callback(code).await {
+            Ok(access_token) => access_token,
+            Err(err) => {
+                println!("Error: {}", err);
+                panic!();
+            }
+        };
+        assert!(!access_token.is_empty());
     }
 }

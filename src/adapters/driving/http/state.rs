@@ -20,7 +20,14 @@ impl AppState {
                 &"users".to_string(),
             )
             .await,
-            google_drive_service: todo!(),
+            google_drive_service: GoogleDriveService::new(
+                config.google_client_id.clone(),
+                config.google_client_secret.clone(),
+                config.google_auth_url.clone(),
+                config.google_token_url.clone(),
+                config.google_redirect_url.clone(),
+            )
+            .await,
             config,
         }
     }
