@@ -9,6 +9,7 @@
 
 ## Correr el proyecto:
 
+- Crea el archivo `.env` dentro de `.compose/` con los mismo valores de `.compose/.env.example` añadiendo las credenciales faltantes.
 - Ve a la carpeta `.compose` y corre el comando `docker compose up --build -d` el API estara disponible en el puerto `8080`.
 
 ## Usar el proyecto:
