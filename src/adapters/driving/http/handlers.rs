@@ -84,8 +84,8 @@ pub async fn handler_get_list_files(
     .await
     {
         Ok(file_ids) => JsonResponse::<Vec<FileInfo>>::new_ok(file_ids),
-        Err(_) => {
-            return JsonResponse::new_int_ser_err("Internal Server Error".to_string());
+        Err(err) => {
+            return JsonResponse::new_int_ser_err(err.to_string());
         }
     }
 }
