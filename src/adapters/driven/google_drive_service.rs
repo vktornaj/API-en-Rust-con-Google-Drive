@@ -9,8 +9,9 @@ use oauth2::{
     AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken, RedirectUrl, Scope,
     StandardErrorResponse, TokenResponse, TokenUrl,
 };
-use reqwest::Client;
+use reqwest::{multipart, Client};
 use serde::Deserialize;
+use serde_json::json;
 use tokio::{
     fs::File,
     io::{AsyncReadExt, AsyncWriteExt},
@@ -259,12 +260,39 @@ impl GoogleDriveServiceTrait for GoogleDriveService {
         })?;
 
         let client = Client::new();
+
+        let metadata = json!({
+            "name": file_name,
+            "mimeType": "application/pdf"
+        });
+
+        let boundary = "foo_bar_baz";
+        let mut body = Vec::new();
+
+        // Add metadata part
+        body.extend(format!("--{}\r\n", boundary).as_bytes());
+        body.extend(b"Content-Type: application/json; charset=UTF-8\r\n\r\n");
+        body.extend(metadata.to_string().as_bytes());
+        body.extend(b"\r\n");
+
+        // Add file part
+        body.extend(format!("--{}\r\n", boundary).as_bytes());
+        body.extend(b"Content-Type: application/pdf\r\n\r\n");
+        body.extend(&buffer);
+        body.extend(b"\r\n");
+
+        // End boundary
+        body.extend(format!("--{}--\r\n", boundary).as_bytes());
+
         let req = client
-            .post("https://www.googleapis.com/upload/drive/v3/files")
+            .post("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart")
             .bearer_auth(&access_token)
-            .header("Content-Type", "application/pdf")
-            .query(&[("uploadType", "media"), ("name", file_name)])
-            .body(buffer);
+            .header(
+                "Content-Type",
+                format!("multipart/related; boundary={}", boundary),
+            )
+            .header("Content-Length", body.len())
+            .body(body);
 
         let response = req.send().await.map_err(|e| {
             google_drive_service::Error::Unknown(format!("Error sending request: {}", e))
