@@ -34,7 +34,7 @@ pub async fn router() -> Router {
         ))
         .layer(
             CorsLayer::new()
-                .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
+                .allow_methods([Method::GET, Method::POST])
                 .allow_headers(Any)
                 .allow_origin([
                     "http://localhost:5173".parse::<HeaderValue>().unwrap(),

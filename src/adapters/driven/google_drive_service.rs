@@ -9,7 +9,7 @@ use oauth2::{
     AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken, RedirectUrl, Scope,
     StandardErrorResponse, TokenResponse, TokenUrl,
 };
-use reqwest::{multipart, Client};
+use reqwest::Client;
 use serde::Deserialize;
 use serde_json::json;
 use tokio::{
